@@ -7,6 +7,11 @@ description: Collect conversational daily-life material into an Obsidian daily n
 
 Use this skill to turn the user's conversational day material into a durable Obsidian daily-note entry with optional `timeline-for-agent` report screenshots and structured data. Obsidian is the primary destination for the full lived record; `timeline-for-agent` supplies the visual reports and optional time-block data.
 
+Keep two modes separate:
+
+- Daily capture: sachlich, ohne Bewertung. Record what the user said in clear, factual language with minimal interpretation.
+- Daily review after midnight: analytical and comprehensive, but still grounded in the day's notes and clearly separated from the raw log.
+
 ## Default Targets
 
 - Vault: `/Users/jiaocheng/Library/Mobile Documents/iCloud~md~obsidian/Documents/Jiao's Obsidian`
@@ -22,7 +27,7 @@ These can be overridden with script flags or environment variables.
 ## Workflow
 
 1. Resolve the date from the user's wording and the current conversation date. Use exact dates in commands.
-2. Convert the user's report into concise Markdown. Preserve concrete details, names, links, decisions, mood, emotional tone, physical state, difficult moments, gratitude, meaningful moments, and open loops. Do not invent times, durations, categories, causes, feelings, or outcomes.
+2. Convert the user's report into concise Markdown. Preserve concrete details, names, links, decisions, mood, emotional tone, physical state, difficult moments, gratitude, meaningful moments, and open loops. Do not invent times, durations, categories, causes, feelings, outcomes, or evaluations.
 3. If the user wants the designed report visuals, first generate one or more timeline screenshots with `timeline-for-agent screenshot`.
 4. Append the Markdown, report image embeds, and optional data block to the Obsidian daily note with `scripts/append_daily_note.py`.
 5. If the user also wants timeline data, or the update contains clear start/end times, use the project CLI before generating final screenshots:
@@ -33,7 +38,16 @@ These can be overridden with script flags or environment variables.
 
 ## Daily Capture Shape
 
-When the user gives a broad spoken update, organize it under `## 今日记录` with only the sections that fit the material. Keep the user's language and emotional nuance; do not over-clinicalize ordinary life.
+When the user gives a broad spoken update, organize it under `## 今日记录` with only the sections that fit the material. Keep the user's language and emotional nuance, but keep the wording factual and non-judgmental. Do not over-clinicalize ordinary life.
+
+Style requirements for daily capture:
+
+- Write sachlich, ohne Bewertung.
+- Prefer "用户说/提到/描述..." only when needed for uncertainty; otherwise record directly.
+- Keep the user's stated feelings as facts, e.g. "心情：低落" or "感到感恩", not "反应过度" or "很积极".
+- Do not add advice, diagnosis, motivational commentary, or hidden interpretation.
+- Do not infer causes unless the user explicitly linked them.
+- Preserve uncertainty with phrases like "未说明具体时间", "原因未明确", or "根据口述无法确认".
 
 Recommended Markdown shape:
 
@@ -73,6 +87,54 @@ Treat these as first-class diary content, not as secondary notes:
 - Open loops, questions, things to follow up, and patterns worth tracking.
 
 If the update includes sensitive mental health material, write in grounded, non-diagnostic language. Preserve what the user said, and avoid adding interpretations that were not stated.
+
+## Daily Review After Midnight
+
+After 00:00, the task changes from raw capture to review of the previous day. Append the review to the previous day's daily note under `## 每日复盘`.
+
+The review may analyze, but it must remain evidence-based and separated from the raw log. Use the previous day's Obsidian note, timeline data, and report images as inputs. Do not overwrite `## 今日记录`.
+
+Recommended review shape:
+
+```markdown
+## 每日复盘
+
+### 一天概览
+- ...
+
+### 时间和精力分布
+- ...
+
+### 情绪和身体线索
+- ...
+
+### 重要事件
+- ...
+
+### 感恩和有意义的部分
+- ...
+
+### 消耗和压力来源
+- ...
+
+### 项目 / Score 预填依据
+- ...
+
+### 模式和观察
+- ...
+
+### 明天可留意
+- ...
+```
+
+Review rules:
+
+- Base every analytical point on content from the daily note, timeline data, or report screenshot.
+- Distinguish facts from hypotheses. Use "可能" or "值得观察" for hypotheses.
+- Keep the tone calm, precise, and useful; avoid praise/blame language.
+- If data is incomplete, say which parts are missing rather than filling gaps.
+- Include report image embeds generated after the day's data is complete, usually one `main` screenshot and optionally `analytics`.
+- Include a compact data block only when it helps future tracking.
 
 ## Obsidian Write
 
