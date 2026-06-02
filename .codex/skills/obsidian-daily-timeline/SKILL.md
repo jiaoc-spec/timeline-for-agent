@@ -1,11 +1,11 @@
 ---
 name: obsidian-daily-timeline
-description: Record conversational daily-life updates into an Obsidian daily note and optionally mirror structured time-block events into timeline-for-agent. Use when the user says what they did today/yesterday/on a date, asks Codex to remember or log a day, wants notes sent to Obsidian, or wants daily diary content plus timeline data.
+description: Collect conversational daily-life material into an Obsidian daily note and optionally mirror structured time-block events into timeline-for-agent. Use when the user reports what they did, narrates calendar items, mood, meaningful events, difficult moments, gratitude, relationships, body state, reflections, asks Codex to remember/log a day, wants notes sent to Obsidian, or wants daily diary content plus timeline report images/data.
 ---
 
 # Obsidian Daily Timeline
 
-Use this skill to turn the user's conversational day report into a durable Obsidian daily-note entry with optional `timeline-for-agent` report screenshots and structured data. Obsidian is the primary destination; `timeline-for-agent` supplies the visual reports and optional time-block data.
+Use this skill to turn the user's conversational day material into a durable Obsidian daily-note entry with optional `timeline-for-agent` report screenshots and structured data. Obsidian is the primary destination for the full lived record; `timeline-for-agent` supplies the visual reports and optional time-block data.
 
 ## Default Targets
 
@@ -22,7 +22,7 @@ These can be overridden with script flags or environment variables.
 ## Workflow
 
 1. Resolve the date from the user's wording and the current conversation date. Use exact dates in commands.
-2. Convert the user's report into concise Markdown. Preserve concrete details, names, links, decisions, and emotional/physical state. Do not invent times, durations, categories, or outcomes.
+2. Convert the user's report into concise Markdown. Preserve concrete details, names, links, decisions, mood, emotional tone, physical state, difficult moments, gratitude, meaningful moments, and open loops. Do not invent times, durations, categories, causes, feelings, or outcomes.
 3. If the user wants the designed report visuals, first generate one or more timeline screenshots with `timeline-for-agent screenshot`.
 4. Append the Markdown, report image embeds, and optional data block to the Obsidian daily note with `scripts/append_daily_note.py`.
 5. If the user also wants timeline data, or the update contains clear start/end times, use the project CLI before generating final screenshots:
@@ -30,6 +30,49 @@ These can be overridden with script flags or environment variables.
    - Run `timeline-for-agent read --date YYYY-MM-DD` before modifying existing events.
    - Run `timeline-for-agent write --date YYYY-MM-DD --stdin` with valid event JSON.
 6. Report the note path, copied image path(s), and whether timeline data was also written.
+
+## Daily Capture Shape
+
+When the user gives a broad spoken update, organize it under `## 今日记录` with only the sections that fit the material. Keep the user's language and emotional nuance; do not over-clinicalize ordinary life.
+
+Recommended Markdown shape:
+
+```markdown
+### 做了什么
+- ...
+
+### 发生了什么
+- ...
+
+### 心情和身体
+- ...
+
+### 不开心或消耗
+- ...
+
+### 感恩
+- ...
+
+### 有意义或不一样的事
+- ...
+
+### 想继续留意
+- ...
+```
+
+Use fewer headings for short updates. If the user speaks in a single flowing paragraph, preserve it as a short narrative plus bullets for important facts. If the user gives calendar-style items, keep them as an event list; if they give reflections, keep them as reflections.
+
+Treat these as first-class diary content, not as secondary notes:
+
+- Mood, anxiety, joy, disappointment, anger, calm, loneliness, motivation, or emotional shifts.
+- Difficult, unfair, stressful, or unhappy events.
+- Gratitude, tenderness, beauty, support received, and moments worth remembering.
+- Meaningful or unusual events, even when they do not have a clear time range.
+- Body state, sleep, energy, symptoms, appetite, medication, exercise, or sensory state.
+- Relationship moments, conversations, conflicts, repair, affection, boundaries, and decisions.
+- Open loops, questions, things to follow up, and patterns worth tracking.
+
+If the update includes sensitive mental health material, write in grounded, non-diagnostic language. Preserve what the user said, and avoid adding interpretations that were not stated.
 
 ## Obsidian Write
 
@@ -103,15 +146,16 @@ For a daily Obsidian note, prefer one `main` screenshot unless the user asks for
 
 - A concise diary summary under `## 今日记录`.
 - One or more screenshot embeds under `## 时间轴报表`.
-- The structured payload or important event table under `## 时间轴数据`.
+- The structured payload, reflection data, or important event table under `## 时间轴数据`.
 
 ## Timeline Mirroring
 
-Mirror to `timeline-for-agent` only when it adds value. The daily note can accept fuzzy natural language, but timeline events need precise, valid data.
+Mirror to `timeline-for-agent` only when it adds value. The daily note can accept fuzzy natural language, emotions, meaning, and reflection; timeline events need precise, valid data.
 
 Do not create timeline events when:
 
 - The user only gives a broad summary with no time range.
+- The user gives mood, gratitude, conflict, reflection, or meaning without a concrete schedule.
 - The classification is unclear and categories have not been checked.
 - An event crosses midnight and has not been split.
 
