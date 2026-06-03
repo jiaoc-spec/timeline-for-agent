@@ -5,12 +5,20 @@ description: Collect conversational daily-life material into an Obsidian daily n
 
 # Obsidian Daily Timeline
 
-Use this skill to turn the user's conversational day material into a durable Obsidian daily-note entry with optional `timeline-for-agent` report screenshots and structured data. Obsidian is the primary destination for the full lived record; `timeline-for-agent` supplies the visual reports and optional time-block data.
+Use this skill to turn the user's conversational day material into a durable Obsidian daily-note entry with optional `timeline-for-agent` report screenshots and structured data. Obsidian is the output archive for material collected through Telegram/CyberBoss/Codex conversation, not a manual input surface the user must fill every day. `timeline-for-agent` supplies visual reports and optional time-block data.
 
 Keep two modes separate:
 
 - Daily capture: sachlich, ohne Bewertung. Record what the user said in clear, factual language with minimal interpretation.
 - Daily review after midnight: analytical and comprehensive, but still grounded in the day's notes and clearly separated from the raw log.
+
+Core workflow principle:
+
+```text
+Human -> Telegram/CyberBoss conversation -> Codex/skill processing -> Obsidian output
+```
+
+Do not design daily notes around manual checkboxes, blank prompts, or fields that require the user to open Obsidian. If data is missing, leave it as "未记录" or write a short question under `## 待确认`, but do not block the note.
 
 ## Default Targets
 
@@ -38,7 +46,7 @@ These can be overridden with script flags or environment variables.
 
 ## Daily Capture Shape
 
-When the user gives a broad spoken update, organize it under `## 今日记录` with only the sections that fit the material. Keep the user's language and emotional nuance, but keep the wording factual and non-judgmental. Do not over-clinicalize ordinary life.
+When the user gives a broad spoken update, organize it under `## 今日记录` with only the sections that fit the material. Keep the user's language and emotional nuance, but keep the wording factual and non-judgmental. Do not over-clinicalize ordinary life. Daily capture should be append-only conversational intake, not a form.
 
 Style requirements for daily capture:
 
@@ -52,29 +60,36 @@ Style requirements for daily capture:
 Recommended Markdown shape:
 
 ```markdown
-### 做了什么
+### 事件流
+- HH:MM（如已知）...
+- 未记录具体时间：...
+
+### 学习 / 工作 / 护理成长
 - ...
 
-### 发生了什么
+### 运动 / 身体 / 能量
 - ...
 
-### 心情和身体
+### 情绪和关系
 - ...
 
-### 不开心或消耗
+### 有意义或值得保留
 - ...
 
-### 感恩
-- ...
-
-### 有意义或不一样的事
-- ...
-
-### 想继续留意
+### 待确认
 - ...
 ```
 
-Use fewer headings for short updates. If the user speaks in a single flowing paragraph, preserve it as a short narrative plus bullets for important facts. If the user gives calendar-style items, keep them as an event list; if they give reflections, keep them as reflections.
+Use fewer headings for short updates. If the user speaks in a single flowing paragraph, preserve it as a short narrative plus bullets for important facts. If the user gives calendar-style items, keep them as an event list; if they give reflections, keep them as reflections. Do not add empty headings just because they exist in the template.
+
+Convert short status messages into useful output:
+
+- "下班了" -> an event under `### 事件流`.
+- "到家了" -> an event and possible commute boundary, without inventing commute duration.
+- "开始运动" / "运动结束" -> a workout event with duration only if both boundaries or a stated duration are available.
+- "今天看了一篇 Trauma-informed Care 论文" -> learning/work growth entry; include paper details only if stated.
+- "今天有点累" -> mood/body/energy entry; do not infer a cause unless stated.
+- "Praxisanleitung 做了30分钟" -> learning/work statistic entry with duration.
 
 Treat these as first-class diary content, not as secondary notes:
 
@@ -102,10 +117,20 @@ Recommended review shape:
 ### 一天概览
 - ...
 
-### 时间和精力分布
+### 时间线和活动分布
 - ...
 
-### 情绪和身体线索
+### 学习统计
+- Deutsch / Fachsprache：...
+- English：...
+- Pflegewissenschaft / Paper：...
+- Praxisanleitung：...
+- Python / Projekte：...
+
+### 运动和身体统计
+- ...
+
+### 情绪和能量线索
 - ...
 
 ### 重要事件
@@ -117,7 +142,7 @@ Recommended review shape:
 ### 消耗和压力来源
 - ...
 
-### 项目 / Score 预填依据
+### 自动评分 / 项目依据
 - ...
 
 ### 模式和观察
@@ -135,6 +160,8 @@ Review rules:
 - If data is incomplete, say which parts are missing rather than filling gaps.
 - Include report image embeds generated after the day's data is complete, usually one `main` screenshot and optionally `analytics`.
 - Include a compact data block only when it helps future tracking.
+- The review may infer mood and energy state, but label it as inferred when the user did not explicitly state it.
+- Weekly and monthly summaries should aggregate generated daily outputs, not ask the user to fill separate weekly/monthly templates.
 
 ## Obsidian Write
 
