@@ -198,7 +198,6 @@ function buildMonthRangeData(dates, state, categoryMap, eventNodeMap) {
 }
 
 function buildRangeAggregate({ key, label, unit, events, categoryMap, eventNodeMap, allDates }) {
-  const totalMinutes = events.reduce((sum, event) => sum + durationMinutes(event.startAt, event.endAt), 0);
   const categoryBuckets = new Map();
   const subcategoryBuckets = new Map();
   const subcategoryTrendBuckets = new Map();
@@ -208,7 +207,6 @@ function buildRangeAggregate({ key, label, unit, events, categoryMap, eventNodeM
   }
 
   for (const event of events) {
-    const minutes = durationMinutes(event.startAt, event.endAt);
     const category = categoryMap.get(event.categoryId);
     const subcategory = categoryMap.get(event.subcategoryId);
     const categoryId = event.categoryId;
@@ -220,7 +218,8 @@ function buildRangeAggregate({ key, label, unit, events, categoryMap, eventNodeM
       color: category?.color || resolveCategoryTheme(categoryId).color,
       ink: category?.ink || resolveCategoryTheme(categoryId).ink,
       minutes: 0,
-    }).minutes += minutes;
+      events: [],
+    }).events.push(event);
 
     if (event.subcategoryId) {
       upsertBucket(subcategoryBuckets, event.subcategoryId, {
@@ -230,7 +229,8 @@ function buildRangeAggregate({ key, label, unit, events, categoryMap, eventNodeM
         color: subcategory?.color || category?.color || resolveCategoryTheme(categoryId).color,
         ink: subcategory?.ink || category?.ink || resolveCategoryTheme(categoryId).ink,
         minutes: 0,
-      }).minutes += minutes;
+        events: [],
+      }).events.push(event);
     }
 
     if (event.subcategoryId && subcategoryTrendBuckets.has(dateKey)) {
@@ -238,14 +238,28 @@ function buildRangeAggregate({ key, label, unit, events, categoryMap, eventNodeM
       upsertBucket(bucket, event.subcategoryId, {
         subcategoryId: event.subcategoryId,
         minutes: 0,
-      }).minutes += minutes;
+        events: [],
+      }).events.push(event);
     }
   }
+
+  for (const bucket of categoryBuckets.values()) {
+    bucket.minutes = displayMinutesForEvents(bucket.events);
+  }
+  for (const bucket of subcategoryBuckets.values()) {
+    bucket.minutes = displayMinutesForEvents(bucket.events);
+  }
+  for (const buckets of subcategoryTrendBuckets.values()) {
+    for (const bucket of buckets.values()) {
+      bucket.minutes = displayMinutesForEvents(bucket.events);
+    }
+  }
+  const totalMinutes = [...categoryBuckets.values()].reduce((sum, bucket) => sum + bucket.minutes, 0);
 
   const categories = [...categoryBuckets.values()]
     .sort((left, right) => right.minutes - left.minutes)
     .map((bucket) => ({
-      ...bucket,
+      ...omitInternalEvents(bucket),
       percent: totalMinutes > 0 ? Number((bucket.minutes / totalMinutes).toFixed(4)) : 0,
     }));
 
@@ -255,7 +269,7 @@ function buildRangeAggregate({ key, label, unit, events, categoryMap, eventNodeM
       .filter((subcategoryBucket) => subcategoryBucket.categoryId === category.categoryId)
       .sort((left, right) => right.minutes - left.minutes)
       .map((subcategoryBucket) => ({
-        ...subcategoryBucket,
+        ...omitInternalEvents(subcategoryBucket),
         percent: category.minutes > 0 ? Number((subcategoryBucket.minutes / category.minutes).toFixed(4)) : 0,
       }));
     const relatedEvents = buildEventBlocks(
@@ -263,15 +277,10 @@ function buildRangeAggregate({ key, label, unit, events, categoryMap, eventNodeM
       allDates.length > 1,
     );
     const trend = allDates.map((date) => {
-      let minutes = 0;
-      for (const event of events) {
-        if (event.categoryId !== category.categoryId) {
-          continue;
-        }
-        if (formatDateInTimezone(event.startAt, activeTimezone) === date) {
-          minutes += durationMinutes(event.startAt, event.endAt);
-        }
-      }
+      const minutes = displayMinutesForEvents(events.filter((candidate) => (
+        candidate.categoryId === category.categoryId
+        && formatDateInTimezone(candidate.startAt, activeTimezone) === date
+      )));
       return { label: date.slice(5), key: date, minutes };
     });
     categoryDetails[category.categoryId] = {
@@ -422,6 +431,68 @@ function durationMinutes(startAt, endAt) {
   return Math.max(0, Math.round((Date.parse(endAt) - Date.parse(startAt)) / 60_000));
 }
 
+function displayMinutesForEvents(events) {
+  const phoneEvents = [];
+  let rawMinutes = 0;
+  for (const event of Array.isArray(events) ? events : []) {
+    if (isPhoneUseEvent(event)) {
+      phoneEvents.push(event);
+    } else {
+      rawMinutes += durationMinutes(event.startAt, event.endAt);
+    }
+  }
+  return rawMinutes + unionDurationMinutes(phoneEvents);
+}
+
+function unionDurationMinutes(events) {
+  const intervals = (Array.isArray(events) ? events : [])
+    .map((event) => [Date.parse(event.startAt), Date.parse(event.endAt)])
+    .filter(([start, end]) => Number.isFinite(start) && Number.isFinite(end) && end > start)
+    .sort((left, right) => left[0] - right[0]);
+  return unionDurationMinutesFromIntervals(intervals);
+}
+
+function unionDurationMinutesFromIntervals(intervals) {
+  const sorted = (Array.isArray(intervals) ? intervals : [])
+    .filter(([start, end]) => Number.isFinite(start) && Number.isFinite(end) && end > start)
+    .sort((left, right) => left[0] - right[0]);
+  if (!sorted.length) {
+    return 0;
+  }
+  let totalMs = 0;
+  let [currentStart, currentEnd] = sorted[0];
+  for (const [start, end] of sorted.slice(1)) {
+    if (start <= currentEnd) {
+      currentEnd = Math.max(currentEnd, end);
+      continue;
+    }
+    totalMs += currentEnd - currentStart;
+    currentStart = start;
+    currentEnd = end;
+  }
+  totalMs += currentEnd - currentStart;
+  return Math.round(totalMs / 60_000);
+}
+
+function isPhoneUseEvent(event) {
+  const tags = Array.isArray(event?.tags) ? event.tags.join(" ") : "";
+  const combined = [
+    event?.title,
+    event?.note,
+    event?.description,
+    event?.categoryId,
+    event?.subcategoryId,
+    event?.eventNodeId,
+    tags,
+  ].filter(Boolean).join(" ");
+  return /(evt\.phone_scroll|screen-time|screen\s*time|phone|手机|刷手机|看手机|屏幕时间|bildschirmzeit|scroll|shorts|reels|tiktok|抖音|小红书)/i.test(combined);
+}
+
+function omitInternalEvents(bucket) {
+  const { events, ...publicBucket } = bucket;
+  return publicBucket;
+}
+
 function anchorEventToReferenceDay(startAt, endAt, anchorDate) {
   return anchorClockRangeToReferenceDay(startAt, endAt, anchorDate, activeTimezone);
 }
@@ -469,6 +540,8 @@ function buildHourlyDistribution(events) {
     key: String(index),
     label: `${String(index).padStart(2, "0")}:00`,
     minutes: 0,
+    rawMs: 0,
+    phoneIntervals: [],
   }));
   for (const event of events) {
     const start = Date.parse(event.startAt);
@@ -478,10 +551,21 @@ function buildHourlyDistribution(events) {
       const hourStart = dateKeyTimeToTimestamp(eventDate, `${String(index).padStart(2, "0")}:00:00`, activeTimezone);
       const hourEnd = hourStart + 60 * 60 * 1000;
       const overlap = Math.max(0, Math.min(end, hourEnd) - Math.max(start, hourStart));
-      buckets[index].minutes += Math.round(overlap / 60_000);
+      if (overlap <= 0) {
+        continue;
+      }
+      if (isPhoneUseEvent(event)) {
+        buckets[index].phoneIntervals.push([Math.max(start, hourStart), Math.min(end, hourEnd)]);
+      } else {
+        buckets[index].rawMs += overlap;
+      }
     }
   }
-  return buckets;
+  return buckets.map((bucket) => ({
+    key: bucket.key,
+    label: bucket.label,
+    minutes: Math.round(bucket.rawMs / 60_000) + unionDurationMinutesFromIntervals(bucket.phoneIntervals),
+  }));
 }
 
 function buildEventBlocks(events, includeDate) {
